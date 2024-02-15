@@ -13,6 +13,7 @@
     "wrangler": "^3.0.0"
   },
   "dependencies": {
-    "@google-cloud/storage": "^7.7.0"
+    "@google-cloud/storage": "^7.7.0",
+    "axios": "^1.6.7"
   }
 }
