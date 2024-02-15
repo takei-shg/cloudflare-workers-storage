@@ -12,6 +12,10 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+import { Storage } from '@google-cloud/storage';
+
+
+
 export interface Env {
 	// Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
 	// MY_KV_NAMESPACE: KVNamespace;
@@ -32,19 +36,45 @@ export interface Env {
 	// DB: D1Database
 }
 
+async function downloadAndUploadFile(originalUrl: string, gcpStorage: Storage, bucketName: string, destinationFilename: string) {
+	const bucket = gcpStorage.bucket(bucketName);
+  const file = bucket.file(destinationFilename);
+
+	const response = await fetch(originalUrl)
+	if (!response.ok || response.body === null) {
+		throw new Error(`unexpected response ${response.statusText}`);
+	};
+	for await (const chunck of response.body) {
+		file.createWriteStream().write(chunck);
+	};
+
+	return;
+}
+
 export default {
 	// The scheduled handler is invoked at the interval set in our wrangler.toml's
 	// [[triggers]] configuration.
-	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-		// A Cron Trigger can make requests to other endpoints on the Internet,
-		// publish to a Queue, query a D1 Database, and much more.
-		//
-		// We'll keep it simple and make an API call to a Cloudflare API:
-		let resp = await fetch('https://api.cloudflare.com/client/v4/ips');
-		let wasSuccessful = resp.ok ? 'success' : 'fail';
+  async fetch(request, env, ctx) {
+		const gcpCredentials = JSON.parse(env.GCP_SERVICEKEY);
+		const storage = new Storage({
+			credentials: gcpCredentials,
+			projectId: 'speech-to-text', // プロジェクトID
+		});
+		const bucketName = 'taketoncheir-podcast';
+		const fileUrl = 'https://dts.podtrac.com/redirect.mp3/media.blubrry.com/thismorning/dealdl.noxsolutions.com/gordondeal/mp3/gd_20240213.mp3';
+		downloadAndUploadFile(fileUrl, storage, bucketName, 'test.mp3');
+    return new Response("hello");
+  }
+	// async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+	// 	// A Cron Trigger can make requests to other endpoints on the Internet,
+	// 	// publish to a Queue, query a D1 Database, and much more.
+	// 	//
+	// 	// We'll keep it simple and make an API call to a Cloudflare API:
+	// 	let resp = await fetch('https://api.cloudflare.com/client/v4/ips');
+	// 	let wasSuccessful = resp.ok ? 'success' : 'fail';
 
-		// You could store this result in KV, write to a D1 Database, or publish to a Queue.
-		// In this template, we'll just log the result:
-		console.log(`trigger fired at ${event.cron}: ${wasSuccessful}`);
-	},
+	// 	// You could store this result in KV, write to a D1 Database, or publish to a Queue.
+	// 	// In this template, we'll just log the result:
+	// 	console.log(`trigger fired at ${event.cron}: ${wasSuccessful}`);
+	// },
 };
